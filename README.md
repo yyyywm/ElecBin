@@ -1,10 +1,10 @@
-# Component Inventory Management
+# ElecBin
 
 [中文文档](./README-zh.md)
 
-A full-stack component inventory management application with BOM (Bill of Materials) support, designed for electronics engineers and hobbyists to manage their component stock, import BOMs from Excel, compare against inventory, and track consumption.
+> Electronics Bin — A full-stack component inventory management application with BOM (Bill of Materials) support, designed for electronics engineers and hobbyists to manage their component stock, import BOMs from Excel, compare against inventory, and track consumption.
 
-> UI is in Chinese. Built with React + Express + TypeScript + SQLite.
+Built with React + Express + TypeScript + SQLite.
 
 ## Features
 
@@ -49,7 +49,7 @@ A full-stack component inventory management application with BOM (Bill of Materi
 ## Project Structure
 
 ```
-component-inventory/
+elecbin/
 ├── client/                    # React frontend
 │   └── src/
 │       ├── api/               # API client functions

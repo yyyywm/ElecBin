@@ -1,10 +1,10 @@
-# 元器件库存管理
+# ElecBin
 
 [English Documentation](./README.md)
 
-一个全栈元器件库存管理应用，支持 BOM（物料清单）管理。专为电子工程师和爱好者设计，用于管理元器件库存、导入 Excel BOM、与库存比对并跟踪消耗。
+> Electronics Bin — 全栈元器件库存管理应用，支持 BOM（物料清单）管理。专为电子工程师和爱好者设计，用于管理元器件库存、导入 Excel BOM、与库存比对并跟踪消耗。
 
-> 界面语言：中文。技术栈：React + Express + TypeScript + SQLite。
+技术栈：React + Express + TypeScript + SQLite。
 
 ## 功能特性
 
@@ -49,7 +49,7 @@
 ## 项目结构
 
 ```
-component-inventory/
+elecbin/
 ├── client/                    # React 前端
 │   └── src/
 │       ├── api/               # API 客户端函数

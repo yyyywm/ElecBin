@@ -23,6 +23,8 @@ npm run build
 
 ## Project Structure
 
+# ElecBin (Electronics Bin)
+
 **Full-stack component inventory management app** with BOM (Bill of Materials) support. UI is in Chinese.
 
 ### Client (`client/`) — React 18 + Vite 5 + TypeScript + Tailwind CSS 3

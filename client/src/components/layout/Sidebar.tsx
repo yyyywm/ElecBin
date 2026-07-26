@@ -20,7 +20,7 @@ export function Sidebar() {
     >
       <div className="flex items-center justify-between p-4 border-b border-slate-700">
         {!collapsed && (
-          <h1 className="text-sm font-bold whitespace-nowrap">元器件库存管理</h1>
+          <h1 className="text-sm font-bold whitespace-nowrap">ElecBin</h1>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
