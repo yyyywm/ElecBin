@@ -1,4 +1,6 @@
-# 元器件库存管理 (Component Inventory Management)
+# Component Inventory Management
+
+[中文文档](./README-zh.md)
 
 A full-stack component inventory management application with BOM (Bill of Materials) support, designed for electronics engineers and hobbyists to manage their component stock, import BOMs from Excel, compare against inventory, and track consumption.
 
@@ -9,7 +11,7 @@ A full-stack component inventory management application with BOM (Bill of Materi
 ### 📦 Component Management
 - **CRUD operations** — Create, read, update, and delete components
 - **Search & filter** — Search by part number, description, or value; filter by category
-- **Customizable columns** — Show/hide columns and reorder via drag-and-drop
+- **Customizable columns** — Show/hide columns and reorder via drag-and-drop, persisted to localStorage
 - **Sort & pagination** — Sort by any column, paginated listing
 - **Low stock alerts** — Visual indicators when stock falls below minimum threshold
 
@@ -18,12 +20,12 @@ A full-stack component inventory management application with BOM (Bill of Materi
 - **Smart comparison** — Matches BOM items against inventory by value+package, value-only, then part number
 - **Visual results** — Color-coded results: found (green), insufficient (yellow), missing (red)
 - **Manual matching** — Reassign missing/insufficient items to alternative components
-- **CSV export** — Export comparison results by status type
-- **Inventory consumption** — Deduct stock based on BOM comparison results (transactional)
+- **CSV export** — Export comparison results filtered by status type
+- **Inventory consumption** — Deduct stock based on BOM comparison results (transactional, SQLite transactions)
 
 ### 🖼️ Image Import
 - **OCR-based import** — Upload component images or order screenshots, auto-extract component data via Tesseract.js
-- **Editable results** — Review and correct OCR output before importing
+- **Editable results** — Review and correct OCR output before importing into inventory
 - **Smart parsing** — Regex-based extraction of part numbers, values, packages, and quantities
 
 ### 📈 Dashboard
@@ -40,9 +42,9 @@ A full-stack component inventory management application with BOM (Bill of Materi
 | **Routing** | react-router-dom v6 |
 | **Icons** | lucide-react |
 | **Backend** | Express.js, TypeScript |
-| **Database** | SQLite via better-sqlite3 (WAL mode) |
+| **Database** | SQLite via better-sqlite3 (WAL mode, foreign keys) |
 | **File Parsing** | xlsx (Excel), multer (uploads) |
-| **OCR** | Tesseract.js (CDN-loaded) |
+| **OCR** | Tesseract.js (loaded from CDN) |
 
 ## Project Structure
 
@@ -58,8 +60,7 @@ component-inventory/
 │       ├── components/
 │       │   ├── dashboard/     # Dashboard page component
 │       │   ├── layout/        # AppLayout, Sidebar
-│       │   └── shared/        # LoadingSpinner, EmptyState, StatusBadge,
-│       │                      # SearchInput, ConfirmDialog, ErrorBoundary, Toast
+│       │   └── shared/        # Reusable components
 │       ├── pages/             # Route page components
 │       ├── types/             # TypeScript interfaces
 │       └── styles/            # Tailwind CSS entry
@@ -72,6 +73,8 @@ component-inventory/
 │       └── utils/             # Excel parser
 ├── test/                      # Test BOM files
 ├── .env.example               # Environment variable reference
+├── README.md                  # English documentation
+├── README-zh.md               # Chinese documentation
 └── package.json               # Root workspace scripts
 ```
 
@@ -134,7 +137,7 @@ cd server && npm start
 | POST | `/api/components` | Create component |
 | PUT | `/api/components/:id` | Update component |
 | DELETE | `/api/components/:id` | Delete component |
-| POST | `/api/components/import-from-text` | Batch import components |
+| POST | `/api/components/import-from-text` | Batch import components from parsed text |
 
 ### BOM
 
@@ -143,12 +146,12 @@ cd server && npm start
 | GET | `/api/bom` | List all BOM imports |
 | GET | `/api/bom/:id` | Get BOM import with items |
 | POST | `/api/bom/upload` | Upload BOM Excel file |
-| POST | `/api/bom/:id/compare` | Run comparison |
-| GET | `/api/bom/:id/compare` | Get comparison results |
-| POST | `/api/bom/:id/consume` | Consume inventory |
+| POST | `/api/bom/:id/compare` | Run comparison against inventory |
+| GET | `/api/bom/:id/compare` | Get cached comparison results |
+| POST | `/api/bom/:id/consume` | Consume inventory for this BOM |
 | DELETE | `/api/bom/:id` | Delete BOM import |
 | PATCH | `/api/bom/:bomId/items/:itemId` | Update item notes |
-| PATCH | `/api/bom/:bomId/items/:itemId/match` | Manually match item |
+| PATCH | `/api/bom/:bomId/items/:itemId/match` | Manually match item to component |
 
 ### Dashboard
 
@@ -159,13 +162,13 @@ cd server && npm start
 
 ## Database
 
-SQLite database stored at `server/data/inventory.db`. Schema auto-creates on startup.
+SQLite database stored at `server/data/inventory.db`. Schema is auto-created on startup.
 
 ### Tables
 
 - **`components`** — Core inventory: `part_number` (unique), `category`, `package`, `value`, `quantity`, `min_stock`, `location`
 - **`bom_imports`** — BOM file uploads: status lifecycle `imported` → `compared` → `consumed`
-- **`bom_items`** — BOM line items: `comparison_status` (found/insufficient/missing), matched components
+- **`bom_items`** — BOM line items: `comparison_status` (found/insufficient/missing), matched components, available stock
 
 ### BOM Comparison Algorithm
 
@@ -180,10 +183,10 @@ The parser supports both Chinese and English column headers:
 
 | Chinese | English | Field |
 |---------|---------|-------|
-| 型号 | part number, pn, mpn | `part_number` |
-| 描述 | description, desc | `description` |
+| 型号 | part number, pn, mpn, part | `part_number` |
+| 描述 | description, desc, comment | `description` |
 | 数量 | qty, quantity, count | `qty` |
-| 位号/位置 | reference designator, refdes | `reference_designators` |
+| 位号/位置 | reference designator, refdes, ref | `reference_designators` |
 | 封装 | footprint, package | `package` |
 | 数值 | value | `value` |
 
