@@ -20,6 +20,9 @@ export interface ParseResult {
 }
 
 const COLUMN_MAP: Record<string, string> = {
+  // Manufacturer Part (e.g. LCEDA) should win — it's the real MPN
+  'manufacturer part': 'part_number',
+  'mfr part': 'part_number',
   'part number': 'part_number',
   'part#': 'part_number',
   'pn': 'part_number',
@@ -28,7 +31,6 @@ const COLUMN_MAP: Record<string, string> = {
   'partno': 'part_number',
   'part_no': 'part_number',
   'partnumber': 'part_number',
-  'manufacturer part': 'part_number',
   'description': 'description',
   'desc': 'description',
   'descr': 'description',

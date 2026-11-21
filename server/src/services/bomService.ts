@@ -2,6 +2,86 @@ import { getDatabase } from '../db/connection';
 import { parseExcel } from '../utils/excelParser';
 import { Component } from './types';
 
+/**
+ * Cross-language keyword aliases for EDA BOM matching.
+ * Maps a keyword to an array of synonyms that should be considered equivalent.
+ * When a BOM field contains a keyword, we check if any synonym appears in the inventory fields.
+ */
+const KEYWORD_ALIASES: Record<string, string[]> = {
+  tf: ['tf卡', 'microsd', 'sd卡', '卡座'],
+  'tf-card': ['tf卡', 'microsd', 'sd卡', '卡座'],
+  'tf卡': ['tf', 'tf-card', 'microsd', 'sd卡', '卡座'],
+  sd: ['microsd', 'sd卡', '卡座'],
+  'sd卡': ['microsd', 'sd卡', '卡座'],
+  卡座: ['microsd', 'sd卡', '卡座', 'tf', 'tf-card'],
+};
+
+/**
+ * Normalize text for comparison:
+ * - μ (Greek) → u (ASCII) — LCEDA uses ASCII "4.7uF" while inventory may have "4.7μF"
+ * - lowercase for case-insensitive matching
+ * - collapse whitespace
+ */
+function normalizeText(v: string): string {
+  return v.replace(/μ/g, 'u').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Score the overlap between two text fields.
+ * Returns 0 if no meaningful overlap, higher for stronger matches.
+ */
+function fieldScore(a: string, b: string): number {
+  const na = normalizeText(a);
+  const nb = normalizeText(b);
+  if (!na || !nb) return 0;
+
+  // Exact match
+  if (na === nb) return 10;
+
+  // Contains (one full field inside the other)
+  if (na.includes(nb) || nb.includes(na)) return 6;
+
+  // Common prefix (e.g. "W25Q80DVUXIE" vs "W25Q80DVUX1E" share "w25q80dvux")
+  let i = 0;
+  while (i < na.length && i < nb.length && na[i] === nb[i]) i++;
+  if (i >= 6) return 5;
+  if (i >= 3) return 2;
+
+  // Keyword alias match (cross-language, e.g. "TF" ↔ "MicroSD卡座")
+  for (const [key, aliases] of Object.entries(KEYWORD_ALIASES)) {
+    const bomHasKey = na.includes(key.toLowerCase());
+    for (const alias of aliases) {
+      if (bomHasKey && nb.includes(alias.toLowerCase())) return 4;
+      if (nb.includes(key.toLowerCase()) && na.includes(alias.toLowerCase())) return 4;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Score a BOM item against an inventory component.
+ * Compares all non-empty text fields (part_number, value, description, package)
+ * and returns the best field-pair score.
+ */
+function scoreMatch(item: BomItem, comp: Component): number {
+  const bomFields = [item.part_number, item.value, item.description, item.package];
+  const compFields = [comp.part_number, comp.value, comp.description, comp.package];
+
+  let best = 0;
+  for (const bf of bomFields) {
+    if (!bf) continue;
+    for (const cf of compFields) {
+      if (!cf) continue;
+      const s = fieldScore(bf, cf);
+      if (s > best) best = s;
+    }
+  }
+  return best;
+}
+
+const MATCH_THRESHOLD = 2;
+
 export interface BomImport {
   id: number;
   filename: string;
@@ -147,9 +227,7 @@ export class BomService {
     }
 
     const items = this.getItems(bomId);
-    const getComponent = db.prepare('SELECT * FROM components WHERE part_number = ?');
-    const getComponentByValue = db.prepare('SELECT * FROM components WHERE value = ? AND package = ?');
-    const getComponentByValueOnly = db.prepare('SELECT * FROM components WHERE value = ?');
+    const allComponents = db.prepare('SELECT * FROM components').all() as Component[];
     const updateItem = db.prepare(
       `UPDATE bom_items SET comparison_status = ?, matched_component_id = ?, available_stock = ? WHERE id = ?`
     );
@@ -158,31 +236,39 @@ export class BomService {
     let insufficient = 0;
     let missing = 0;
 
+    // Track which components are already matched (1:1 to avoid double-counting)
+    const matchedIds = new Set<number>();
+
+    // Score all BOM items against all components, store results
+    const scored: { item: BomItem; comp: Component; score: number }[] = [];
+    for (const item of items) {
+      for (const comp of allComponents) {
+        const s = scoreMatch(item, comp);
+        scored.push({ item, comp, score: s });
+      }
+    }
+
+    // Sort by score descending, greedily assign best match per BOM item
+    // ensuring each inventory component is used at most once
+    scored.sort((a, b) => b.score - a.score);
+    const assignments = new Map<string, { comp: Component; score: number }>();
+    for (const { item, comp, score } of scored) {
+      if (score < MATCH_THRESHOLD) continue;
+      const key = `${item.id}-${comp.id}`;
+      if (assignments.has(key)) continue;
+      // Check this BOM item already got a better match
+      const existing = assignments.get(String(item.id));
+      if (existing && existing.score >= score) continue;
+      // Check this component already used
+      if (matchedIds.has(comp.id)) continue;
+      assignments.set(String(item.id), { comp, score });
+      matchedIds.add(comp.id);
+    }
+
     const transaction = db.transaction(() => {
       for (const item of items) {
-        let component: Component | null = null;
-
-        // Priority 1: match by value + package
-        if (item.value) {
-          if (item.package) {
-            const matches = getComponentByValue.all(item.value, item.package) as Component[];
-            if (matches.length > 0) {
-              component = matches[0];
-            }
-          }
-          // Priority 2: match by value only
-          if (!component) {
-            const matches = getComponentByValueOnly.all(item.value) as Component[];
-            if (matches.length > 0) {
-              component = matches[0];
-            }
-          }
-        }
-
-        // Priority 3: fallback to exact part_number match
-        if (!component) {
-          component = getComponent.get(item.part_number) as Component | undefined ?? null;
-        }
+        const assignment = assignments.get(String(item.id));
+        const component = assignment ? assignment.comp : null;
 
         if (!component) {
           updateItem.run('missing', null, 0, item.id);

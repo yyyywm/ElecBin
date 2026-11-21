@@ -77,5 +77,14 @@ export function initDatabase(): void {
     }
   }
 
+  // Indexes for BOM description-based matching (fallback for EDA BOMs like LCEDA)
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS idx_components_description ON components(description)`,
+    `CREATE INDEX IF NOT EXISTS idx_components_desc_pkg ON components(description, package)`,
+  ];
+  for (const sql of indexes) {
+    db.exec(sql);
+  }
+
   console.log('Database initialized successfully');
 }
