@@ -1,0 +1,11 @@
+{
+  "main": "app.js",
+  "resources": [
+    {
+      "url": "/test.html",
+      "path": "test.html",
+      "type": "html",
+      "content": { "value": "SEA Embedded File" }
+    }
+  ]
+}

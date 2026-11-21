@@ -1,0 +1,39 @@
+{
+  "name": "elecbin",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "description": "电子料盘管理系统 (Electronics Bin)",
+  "author": "ElecBin",
+  "scripts": {
+    "build:main": "tsc",
+    "start": "electron .",
+    "build:app": "electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.elecbin.app",
+    "productName": "ElecBin",
+    "directories": {
+      "output": "../../dist-app"
+    },
+    "files": [
+      "dist/**/*",
+      "server/**/*",
+      "view/**/*"
+    ],
+    "asar": false,
+    "win": {
+      "target": "portable",
+      "icon": false
+    },
+    "portable": {
+      "artifactName": "ElecBin.exe"
+    }
+  }
+}

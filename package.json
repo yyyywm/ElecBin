@@ -10,7 +10,8 @@
     "build": "cd server && npm run build && cd ../client && npm run build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "node-sea": "^0.3.0"
   },
   "dependencies": {
     "cross-env": "^10.1.0"
