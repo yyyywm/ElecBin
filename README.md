@@ -17,8 +17,8 @@ Built with React + Express + TypeScript + SQLite.
 
 ### 📊 BOM (Bill of Materials) Management
 - **Excel import** — Drag-and-drop `.xlsx`/`.xls` upload with smart column mapping (supports Chinese and English headers)
-- **Smart comparison** — Matches BOM items against inventory by value+package, value-only, then part number
-- **Visual results** — Color-coded results: found (green), insufficient (yellow), missing (red)
+- **Inventory comparison** — Suggests inventory matches based on text similarity across part numbers, values, descriptions, and packages
+- **Visual results** — Shows BOM packages and quantities to buy, with search by part number or package and filters by stock status
 - **Manual matching** — Reassign missing/insufficient items to alternative components
 - **CSV export** — Export comparison results filtered by status type
 - **Inventory consumption** — Deduct stock based on BOM comparison results (transactional, SQLite transactions)
@@ -124,6 +124,14 @@ npm run build
 cd server && npm start
 ```
 
+## Check BOM Packages and Shortages
+
+1. Import the Excel BOM and start the inventory comparison from the BOM details. The first worksheet can use `Package`, `Footprint`, or `封装` as the package column header. To preserve leading zeros in packages such as `0603`, format the cells as text before entering the values.
+2. Check the required package in the **BOM 封装** (BOM package) column. The purchase summary lists each missing or insufficient BOM line with its part number, required package, and quantity to buy. Blank package values are marked as unspecified. To fill them in, update the source spreadsheet and import it again.
+3. Select **待采购** (To buy) to see both missing and insufficient items. Search the table by any part of a part number or package, such as `SOD-323`, to narrow the list further. CSV export uses the statuses selected in its own menu. The `Package` column contains the BOM package.
+
+Before choosing a substitute or deducting stock, check the actual part number, package, and pinout of the inventory component. The comparison status reflects the quantity of the current match.
+
 ## API Endpoints
 
 ### Components
@@ -172,10 +180,7 @@ SQLite database stored at `server/data/inventory.db`. Schema is auto-created on 
 
 ### BOM Comparison Algorithm
 
-1. **Priority 1**: Match by `value` + `package` (most specific)
-2. **Priority 2**: Match by `value` only
-3. **Priority 3**: Match by exact `part_number`
-4. Uses the first match found at each priority level
+Automatic comparison scores text similarity across the part number, value, description, and package fields of each BOM line and inventory record. The highest score from any field pair becomes the candidate's score. Candidates are assigned from highest to lowest score, with at most one automatic assignment per BOM line and inventory record. A shared value or package can produce a match, so check physical compatibility before using the part.
 
 ## Excel Column Mapping
 

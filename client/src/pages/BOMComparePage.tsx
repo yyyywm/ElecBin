@@ -165,11 +165,14 @@ export function BOMComparePage() {
   const willConsume = items.filter(i => i.comparison_status === 'found' || i.comparison_status === 'insufficient')
     .reduce((s, i) => s + Math.min(i.qty, i.available_stock || 0), 0);
 
-  const filteredItems = items.filter((item) => {
-    if (filterStatus !== 'all' && item.comparison_status !== filterStatus) return false;
-    if (searchTerm && !item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    return true;
-  }).sort((a, b) => {
+  const searchQuery = searchTerm.trim().toLowerCase();
+  const statusItems = filterStatus === 'to-buy'
+    ? needToBuy
+    : items.filter((item) => filterStatus === 'all' || item.comparison_status === filterStatus);
+  const filteredItems = statusItems.filter((item) =>
+    !searchQuery || item.part_number.toLowerCase().includes(searchQuery)
+      || (item.package ?? '').toLowerCase().includes(searchQuery)
+  ).sort((a, b) => {
     const order = { found: 0, insufficient: 1, missing: 2 };
     const aOrder = order[a.comparison_status as keyof typeof order] ?? 3;
     const bOrder = order[b.comparison_status as keyof typeof order] ?? 3;
@@ -279,17 +282,18 @@ export function BOMComparePage() {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
           <div className="flex items-start gap-3">
             <ShoppingCart size={20} className="text-amber-600 mt-0.5 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-amber-800 text-sm">需要购买的物料</h3>
               <p className="text-xs text-amber-700 mt-1">
-                共 {needToBuy.length} 种物料，需要补充 {needToBuyTotal} 个
+                共 {needToBuy.length} 项物料，需要补充 {needToBuyTotal} 个
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {needToBuy.map((item) => {
                   const shortage = Math.max(0, item.qty - (item.available_stock || 0));
                   return (
-                    <span key={item.id} className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded text-xs text-amber-800 border border-amber-200">
-                      {item.part_number}
+                    <span key={item.id} className="inline-flex max-w-full flex-wrap items-baseline gap-x-1 px-2 py-1 bg-white rounded text-xs text-amber-800 border border-amber-200">
+                      <span className="[overflow-wrap:anywhere]">{item.part_number}</span>
+                      <span className="text-amber-700 [overflow-wrap:anywhere]">· {item.package?.trim() || '封装未填写'}</span>
                       <span className="font-medium">+{shortage || item.qty}</span>
                     </span>
                   );
@@ -316,20 +320,22 @@ export function BOMComparePage() {
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="relative w-64">
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="relative w-64 max-w-full">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索型号..."
+            placeholder="搜索型号或封装…"
+            aria-label="搜索比对明细的型号或封装"
             className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[
             { value: 'all', label: '全部', color: 'bg-slate-100 text-slate-700 hover:bg-slate-200' },
+            { value: 'to-buy', label: '待采购', color: 'bg-amber-100 text-amber-800 hover:bg-amber-200' },
             { value: 'found', label: '充足', color: 'bg-green-100 text-green-700 hover:bg-green-200' },
             { value: 'insufficient', label: '不足', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' },
             { value: 'missing', label: '缺少', color: 'bg-red-100 text-red-700 hover:bg-red-200' },
@@ -337,6 +343,7 @@ export function BOMComparePage() {
             <button
               key={value}
               onClick={() => setFilterStatus(value)}
+              aria-pressed={filterStatus === value}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 filterStatus === value ? color : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
               }`}
@@ -348,13 +355,14 @@ export function BOMComparePage() {
       </div>
 
       {/* Results Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">#</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">型号</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">描述</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">BOM 封装</th>
               <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">需要数量</th>
               <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">可用库存</th>
               <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">缺少</th>
@@ -374,6 +382,9 @@ export function BOMComparePage() {
                   <td className="px-4 py-3 text-sm text-slate-400">{index + 1}</td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.part_number}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 max-w-[200px] truncate">{item.description}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 max-w-[16rem] [overflow-wrap:anywhere]">
+                    {item.package?.trim() || '未填写'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-right text-slate-800">{item.qty}</td>
                   <td className="px-4 py-3 text-sm text-right font-medium">
                     <span

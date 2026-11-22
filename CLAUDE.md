@@ -40,7 +40,7 @@ npm run build
 | `src/pages/ComponentDetailPage.tsx` | Create/edit form (shared for new and existing) |
 | `src/pages/BOMImportPage.tsx` | Excel upload via drag-drop or file picker |
 | `src/pages/BOMDetailPage.tsx` | BOM item list with compare trigger |
-| `src/pages/BOMComparePage.tsx` | Side-by-side comparison results, CSV export, inventory consumption |
+| `src/pages/BOMComparePage.tsx` | Comparison results and purchase summary with BOM packages, part number/package search, CSV export, inventory consumption |
 | `src/pages/ImageImportPage.tsx` | OCR-based import from images via Tesseract.js |
 | `src/components/shared/` | Reusable: LoadingSpinner, EmptyState, StatusBadge, SearchInput, ConfirmDialog, ErrorBoundary, Toast |
 
@@ -81,8 +81,8 @@ SQLite stored at `server/data/inventory.db`. Schema is auto-created on startup v
 
 - **API response format**: consistently `{ success: boolean, data: T, error?: { message: string } }` across all endpoints
 - **React Query keys**: `['components']`, `['component', id]`, `['bom-list']`, `['bom-detail', id]`, `['bom-compare', id]`, `['dashboard-stats']`, `['recent-activity']`, `['low-stock']`, `['categories']`
-- **BOM comparison**: Priority 1: match by value+package, Priority 2: match by value, Priority 3: match by part_number. Uses the first match found.
-- **BOM items now include `value`, `package`, `notes` columns**: Value/package are extracted from the Excel during upload. Notes are editable inline in the comparison results page (onBlur save via `PATCH /api/bom/:bomId/items/:itemId`).
+- **BOM comparison**: Scores text similarity across BOM and inventory part number, value, description, and package fields. Uses the highest field-pair score and assigns each inventory record to at most one BOM line during automatic comparison.
+- **BOM package display**: Excel import stores the required package in `bom_items.package`. The comparison table, purchase summary, and CSV read this field. Notes can be updated via `PATCH /api/bom/:bomId/items/:itemId`.
 - **Inventory consumption**: Deducts from `components.quantity` based on BOM comparison results, marks BOM as `consumed`. Uses SQLite transactions.
 - **Excel column mapping**: `excelParser.ts` maps Chinese/English column headers (e.g., 型号→part_number, 数量→qty, 位号→reference_designators) using a `COLUMN_MAP` lookup.
 - **Image import**: Uses Tesseract.js (loaded from CDN) for OCR, then regex-based text parsing to extract components. Supports `chi_sim+eng` language.
